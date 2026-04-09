@@ -40,6 +40,231 @@ The report includes:
 
 This makes the module suitable for use as an enrichment step inside a larger pipeline.
 
+## How Key Outputs Are Calculated
+
+The module combines direct YouTube API fields with heuristic inference. The most important outputs should be interpreted as context signals, not facts.
+
+### `freshnessSummary`
+
+`freshnessSummary` is a short human-readable explanation derived from:
+
+- the video's `publishedAt` timestamp
+- urgency/currentness terms in the title or description, such as `today`, `breaking`, `live`, `just happened`, or `happening now`
+- viewer reactions in comments, such as `this is old`, `repost`, `out of context`, or `misleading title`
+
+Meaning:
+
+- If it says no strong freshness mismatch was detected, the module did not see obvious metadata/comment cues that the video is being recirculated misleadingly.
+- If it mentions freshness mismatch, the title/description makes the video sound current but the publish date is significantly older.
+- If it mentions repost or misleading-title cues, viewers are explicitly reacting as if the framing is recycled, wrong, or contextually misleading.
+
+This field is especially useful for identifying:
+
+- real but old footage framed as current
+- recycled uploads
+- authentic media used misleadingly through timing or framing
+
+### `freshnessSignals`
+
+`freshnessSignals` is the structured version of `freshnessSummary`.
+
+Possible values:
+
+- `freshness_mismatch`
+  Meaning: the title/description suggests current urgency, but the upload date is materially older.
+- `stale_but_currently_framed`
+  Meaning: a stronger version of freshness mismatch where the video is substantially old yet framed like current news.
+- `possible_repost`
+  Meaning: comments suggest the upload may be recycled or previously seen.
+- `possible_misleading_title`
+  Meaning: comments suggest the title or framing is inaccurate or clickbait-like.
+- `viewer_dates_it_as_old`
+  Meaning: viewers are explicitly saying the footage or upload is not recent.
+
+### `contentIntent`
+
+`contentIntent` is inferred from title, description, and channel text using keyword-pattern heuristics.
+
+Possible values:
+
+- `reporting`
+- `commentary`
+- `reaction`
+- `satire/comedy`
+- `tutorial`
+- `promotion`
+- `testimonial`
+- `clip`
+- `call_to_action`
+- `general`
+
+Meaning:
+
+- This is the module's estimate of how the uploader is framing the content, not what the video objectively is.
+- It is most useful for downstream interpretation. For example, a factual claim inside `satire/comedy` should be treated differently from the same claim inside `reporting`.
+
+### `channelFit`
+
+`channelFit` is calculated by comparing the video title against recent uploads from the same channel.
+
+Possible values:
+
+- `typical of the channel's recent uploads`
+- `somewhat atypical`
+- `atypical for this channel`
+- `baseline unavailable`
+
+Meaning:
+
+- `typical` suggests the upload matches the channel's recent topics and style.
+- `somewhat atypical` suggests partial mismatch.
+- `atypical` suggests the video stands out relative to recent uploads and may reflect opportunistic posting, a narrative pivot, or an unusual topic.
+- `baseline unavailable` means the module could not gather enough recent uploads to compare.
+
+### `contextRiskScore`
+
+`contextRiskScore` is a 0-100 heuristic score that combines:
+
+- topic-sensitive `riskFlags`
+- metadata-level `narrativeSignals`
+- freshness/repost cues from `freshnessSignals`
+- comment pushback from `commentDynamics`
+- whether the upload looks unusual via `channelFit`
+
+Meaning:
+
+- Lower scores suggest fewer contextual red flags.
+- Mid-range scores suggest mixed or moderate contextual concern.
+- Higher scores suggest stronger signs of contextual risk, such as sensitive topics combined with misleading framing, viewer correction attempts, or freshness mismatch.
+
+This is **not** a truth score and **not** an authenticity score.
+
+### `riskFlags`
+
+`riskFlags` are topic labels inferred from keywords across the title, description, channel text, and comments.
+
+Possible values currently include:
+
+- `politics`
+- `elections`
+- `war/conflict`
+- `public health`
+- `finance/investing`
+- `conspiracy`
+- `medical claims`
+- `breaking news`
+- `AI-generated`
+- `deepfake`
+
+Meaning:
+
+- These flags indicate topic sensitivity, not proof that the video is false or dangerous.
+- They are best used to route the video into stricter downstream review.
+
+### `narrativeSignals`
+
+`narrativeSignals` are framing cues inferred from metadata and some comment text.
+
+Possible values currently include:
+
+- `urgent_framing`
+- `emotionally_loaded`
+- `call_to_action`
+- `conspiracy_language`
+- `source_missing`
+- `viewer_pushback`
+
+Meaning:
+
+- `urgent_framing`: title/description presents the video as immediate or breaking
+- `emotionally_loaded`: strong sensational or emotional framing
+- `call_to_action`: the uploader is urging the viewer to act, donate, share, join, or support
+- `conspiracy_language`: metadata contains language associated with conspiratorial framing
+- `source_missing`: the description references evidence or reporting but does not visibly link sources
+- `viewer_pushback`: comments contain skepticism, correction attempts, or out-of-context accusations
+
+### `descriptionDomains`
+
+`descriptionDomains` is extracted from all URLs found in the description.
+
+Meaning:
+
+- Empty list: no outbound links were found.
+- Social-heavy domains may suggest self-promotion or recirculation.
+- Institutional or source-like domains may indicate stronger sourcing.
+- Commerce-heavy domains may suggest monetization or promotional intent.
+
+### `playlistContext`
+
+`playlistContext` is built by scanning visible playlists on the channel and checking whether the video appears in them.
+
+Meaning:
+
+- If matches exist, the video may be part of a series, campaign, recurring topic, or editorial grouping.
+- If empty, no visible playlist membership was detected in the scanned playlists.
+
+### `channelTopicClusters`
+
+`channelTopicClusters` is generated from a larger sample of the channel's upload history.
+
+Meaning:
+
+- Each cluster contains a recurring term and an approximate count of how many sampled uploads share it.
+- Strong clusters suggest sustained narratives or repeated topical focus.
+- Weak or empty clusters suggest no dominant recurring theme was obvious from the sample.
+
+### `engagementProfile`
+
+`engagementProfile` compares the video's views, likes, and comments against recent uploads from the same channel.
+
+Key fields:
+
+- `performanceBand`
+- `baselineSampleSize`
+- `viewRatioVsRecentAverage`
+- `likeRatioVsRecentAverage`
+- `commentRatioVsRecentAverage`
+
+Meaning:
+
+- `well above channel baseline`: the upload is outperforming recent norms and may be unusually amplified
+- `within normal channel range`: the upload looks broadly normal for the channel
+- `below channel baseline`: the upload is underperforming relative to recent uploads
+- `unclear`: not enough baseline data
+
+### `commentDynamics`
+
+`commentDynamics` counts coarse patterns in the comment sample.
+
+Current keys:
+
+- `supportive`
+- `skeptical`
+- `corrective`
+- `hostile`
+- `source_requesting`
+- `polarized`
+
+Meaning:
+
+- `supportive`: comments contain broadly positive/supportive language
+- `skeptical`: comments contain doubt, accusations of falsity, or authenticity skepticism
+- `corrective`: comments attempt to add correction or missing context
+- `hostile`: comments contain aggressive or abusive language
+- `source_requesting`: viewers explicitly ask for proof, links, or evidence
+- `polarized`: both supportive and skeptical reactions are visibly present
+
+### `dataAvailability`
+
+`dataAvailability` tells the caller which sections were actually populated.
+
+Meaning:
+
+- `true` means the module successfully gathered enough data for that section
+- `false` means the data was unavailable, inaccessible, or not detected
+
+This is important for downstream systems so they do not over-interpret missing sections.
+
 ## Why This Module Adds Value
 
 This module is most useful when paired with other parts of a larger video-analysis system.
@@ -195,7 +420,7 @@ python -m app.main "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
 
 ```json
 {
-  "platform": "YouTube",
+  "videoId": "dQw4w9WgXcQ",
   "videoUrl": "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
   "title": "Rick Astley - Never Gonna Give You Up (Official Music Video)",
   "channelName": "Rick Astley",
