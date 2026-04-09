@@ -32,13 +32,42 @@ Given a YouTube URL, the module builds context in several layers:
 
 The report includes:
 
-- Core video fields such as `videoId`, `videoUrl`, `title`, `channelName`, `publishedAt`, `views`, `commentCount`, and `likeCount`
-- Context summaries such as `descriptionSummary`, `channelContextSummary`, `videoContextSummary`, `commentSummary`, `playlistContextSummary`, `channelHistorySummary`, and `freshnessSummary`
-- Inference fields such as `contentIntent`, `claimRiskScore`, `contextRiskScore`, `channelFit`, `riskFlags`, `narrativeSignals`, and `topThemes`
-- Structured supporting data such as `descriptionDomains`, `playlistContext`, `channelTopicClusters`, `freshnessSignals`, `engagementProfile`, `commentDynamics`, and sampled `comments`
+- Core video fields such as `videoId`, `videoUrl`, `title`, `channelName`, `channelId`, `publishedAt`, `views`, `commentCount`, and `likeCount`
+- Compact context summaries such as `channelContextSummary`, `videoContextSummary`, and `freshnessSummary`
+- Inference fields such as `contentIntent`, `contextRiskScore`, `channelFit`, `riskFlags`, and `narrativeSignals`
+- Structured supporting data such as `descriptionDomains`, `playlistContext`, `channelTopicClusters`, `freshnessSignals`, `engagementProfile`, `commentDynamics`, and `dataAvailability`
 - `dataAvailability` flags so the caller can see which sections were actually populated
 
 This makes the module suitable for use as an enrichment step inside a larger pipeline.
+
+## Why This Module Adds Value
+
+This module is most useful when paired with other parts of a larger video-analysis system.
+
+It does **not** determine whether a video is authentic, AI-generated, or a deepfake. It does **not** extract or fact-check the actual claims made in the audiovisual content. Instead, it adds the surrounding context that those systems usually lack.
+
+The key value is that it helps answer questions like:
+
+- Who is posting this video, and what kind of source do they appear to be?
+- Is this upload typical for the channel, or is it unusual relative to recent history?
+- Does the video appear to be part of a recurring series, playlist, or narrative arc?
+- Is the uploader framing the video in an urgent, sensational, weakly sourced, or commercially motivated way?
+- Are viewers reacting as if the video is misleading, old, out of context, or recycled?
+
+In practice, the strongest insight this module can provide is often:
+
+- **“This video may be real, but the way it is framed or recirculated is misleading.”**
+
+That makes it especially valuable as a **contextual risk** layer. A separate authenticity model might conclude that the footage is real, and a claim-checking module might verify what is being said, but this module can still add important signals such as:
+
+- likely source type
+- channel-level narrative patterns
+- freshness mismatch
+- repost / misleading-title cues
+- weak or absent sourcing in the description
+- audience pushback and correction attempts
+
+This is why the output is intentionally oriented around source context, distribution context, framing context, and audience-reaction context.
 
 ## What It Does Not Do
 
@@ -170,12 +199,12 @@ python -m app.main "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
   "videoUrl": "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
   "title": "Rick Astley - Never Gonna Give You Up (Official Music Video)",
   "channelName": "Rick Astley",
-  "descriptionSummary": "The official music video for 'Never Gonna Give You Up' by Rick Astley.",
   "videoContextSummary": "This appears to be an entertainment video ...",
-  "commentSummary": "Analyzed 50 comments. The overall tone is mostly positive.",
   "contentIntent": "clip",
   "contextRiskScore": 12,
-  "topThemes": ["never", "gonna", "give", "rick", "love"]
+  "riskFlags": [],
+  "descriptionDomains": [],
+  "freshnessSignals": []
 }
 ```
 

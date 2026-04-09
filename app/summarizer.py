@@ -35,11 +35,9 @@ def summarize(
     Produce summarization fields for the video context report.
 
     Returns a dict with keys:
-        descriptionSummary, channelContextSummary, videoContextSummary,
-        commentSummary, contentIntent, claimRiskScore, contextRiskScore,
-        contextRiskSummary, channelFit, topThemes, riskFlags,
+        channelContextSummary, videoContextSummary, freshnessSummary,
+        contentIntent, contextRiskScore, channelFit, riskFlags,
         narrativeSignals, engagementProfile, commentDynamics,
-        descriptionLinkSummary, playlistContextSummary, channelHistorySummary,
         freshnessSummary, descriptionDomains, playlistContext,
         channelTopicClusters, freshnessSignals
     """
@@ -119,7 +117,6 @@ def _heuristic_summarize(
     )
 
     return {
-        "descriptionSummary": heuristics.summarize_description(description),
         "channelContextSummary": heuristics.summarize_channel_context(channel, source_type),
         "videoContextSummary": heuristics.build_video_context_summary(
             channel_name=channel_name,
@@ -131,17 +128,10 @@ def _heuristic_summarize(
             channel_fit=channel_fit,
             engagement_profile=engagement_profile,
         ),
-        "commentSummary": heuristics.summarize_comments(comments, comments_enabled),
-        "descriptionLinkSummary": description_links["summary"],
-        "playlistContextSummary": heuristics.analyze_playlist_context(playlist_context),
-        "channelHistorySummary": heuristics.summarize_channel_history(history_videos, topic_clusters),
         "freshnessSummary": freshness["summary"],
         "contentIntent": content_intent,
-        "claimRiskScore": claim_risk_score,
         "contextRiskScore": context_risk_score,
-        "contextRiskSummary": context_risk_summary,
         "channelFit": channel_fit,
-        "topThemes": heuristics.extract_top_themes(comments, title, description),
         "riskFlags": risk_flags,
         "narrativeSignals": narrative_signals,
         "descriptionDomains": description_links["domains"],
@@ -189,20 +179,12 @@ def _llm_summarize(
     )
 
     user_prompt = f"""Analyze the following video data and return a JSON object with exactly these keys:
-- descriptionSummary: A concise 1–3 sentence summary of the video description. If empty, say so.
 - channelContextSummary: 1–3 sentences describing the channel type, scale, and any notable metadata context.
 - videoContextSummary: 1–3 sentences identifying the probable source type and the nature of the content, including whether this upload looks typical or atypical versus recent uploads.
-- commentSummary: 1–3 sentences summarizing the overall public reaction visible in the comments. Note sentiment, major themes, and any notable disagreements or corrections.
-- descriptionLinkSummary: 1–2 sentences describing what kinds of domains are linked in the video description and what that implies about sourcing or promotion.
-- playlistContextSummary: 1–2 sentences describing whether the video appears to belong to a playlist/series and what that suggests.
-- channelHistorySummary: 1–2 sentences summarizing the channel's recurring topics from a larger upload-history sample.
 - freshnessSummary: 1–2 sentences describing any freshness mismatch, repost, or misleading-title cues seen in metadata/comments.
 - contentIntent: One short label from this set only: reporting, commentary, reaction, satire/comedy, tutorial, promotion, testimonial, clip, call_to_action, general
-- claimRiskScore: Integer from 0 to 100 estimating how strongly the title/description imply sensitive factual claims.
 - contextRiskScore: Integer from 0 to 100 combining text framing, topic sensitivity, comment pushback, and channel-fit signals.
-- contextRiskSummary: 1–2 sentences explaining the main drivers of contextRiskScore.
 - channelFit: One short phrase describing whether the upload appears typical or atypical for the channel.
-- topThemes: A JSON array of 3–6 short keyword strings representing the main topics discussed.
 - riskFlags: A JSON array of relevant risk-sensitive labels from this set only: politics, elections, war/conflict, public health, finance/investing, conspiracy, medical claims, breaking news, AI-generated, deepfake. Only include flags that are clearly supported by the data. Return an empty array if none apply.
 - narrativeSignals: A JSON array of short labels describing metadata-level framing signals such as urgent_framing, emotionally_loaded, call_to_action, conspiracy_language, source_missing, viewer_pushback.
 - descriptionDomains: A JSON array of linked domains found in the description.
@@ -325,11 +307,10 @@ def _parse_llm_json(raw: str) -> Dict[str, Any]:
         raise RuntimeError(f"LLM returned invalid JSON: {exc}\nRaw output:\n{raw[:500]}")
 
     required_keys = {
-        "descriptionSummary", "channelContextSummary", "videoContextSummary",
-        "commentSummary", "contentIntent", "claimRiskScore", "contextRiskScore",
-        "contextRiskSummary", "channelFit", "topThemes", "riskFlags",
+        "channelContextSummary", "videoContextSummary",
+        "contentIntent", "contextRiskScore",
+        "channelFit", "riskFlags",
         "narrativeSignals", "engagementProfile", "commentDynamics",
-        "descriptionLinkSummary", "playlistContextSummary", "channelHistorySummary",
         "freshnessSummary", "descriptionDomains", "playlistContext",
         "channelTopicClusters", "freshnessSignals",
     }
@@ -338,11 +319,11 @@ def _parse_llm_json(raw: str) -> Dict[str, Any]:
         raise RuntimeError(f"LLM JSON missing required keys: {missing}")
 
     # Ensure list fields are actually lists
-    for list_field in ("topThemes", "riskFlags", "narrativeSignals", "descriptionDomains", "freshnessSignals"):
+    for list_field in ("riskFlags", "narrativeSignals", "descriptionDomains", "freshnessSignals"):
         if not isinstance(result[list_field], list):
             result[list_field] = [str(result[list_field])]
 
-    for int_field in ("claimRiskScore", "contextRiskScore"):
+    for int_field in ("contextRiskScore",):
         try:
             result[int_field] = int(result[int_field])
         except (TypeError, ValueError):
