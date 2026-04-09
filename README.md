@@ -294,6 +294,22 @@ That makes it especially valuable as a **contextual risk** layer. A separate aut
 
 This is why the output is intentionally oriented around source context, distribution context, framing context, and audience-reaction context.
 
+## Research Framing
+
+This module is useful because misinformation risk is not only a property of whether a video is fake or whether a claim is false. Misleading content on platforms like YouTube can gain traction through familiar formats, personal testimony, implied expertise, persuasive framing, and patterns of circulation even when the media itself is authentic.
+
+In that context, this module adds value by analyzing the surrounding signals that make a video credible, reusable, or misleading in circulation.
+
+It is especially useful for surfacing:
+
+- source authority and uploader context
+- recurring channel narratives and series context
+- framing cues such as urgency, weak sourcing, and commercial or social amplification
+- freshness mismatch and recirculation risk
+- audience pushback, correction attempts, and skepticism
+
+This means the module should be understood as a **contextual-risk layer**, not an authenticity or fact-checking engine. Its main strength is identifying patterns like **“real but misleadingly framed”** or **“socially persuasive despite weak evidentiary context.”** Its main limitation is that it does not analyze the audiovisual content itself.
+
 ## What It Does Not Do
 
 - It does not watch or interpret the video frames
